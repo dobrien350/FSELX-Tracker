@@ -13,7 +13,8 @@ import plotly.graph_objects as go
 # FUND / PORTFOLIO SETTINGS
 # =============================
 FSELX_SYMBOL = "FSELX"
-SHARES = 22256
+DEFAULT_SHARES = 22256
+SHARES = DEFAULT_SHARES
 DATABASE = "fselx_monitor.db"
 TIMEZONE = ZoneInfo("America/New_York")
 HOLDINGS_DATE = "07/31/2026"
@@ -362,6 +363,13 @@ def percent(value):
     return f"{value * 100:+.2f}%"
 
 
+def share_count(value):
+    """Format whole shares without decimals and fractional shares cleanly."""
+    if float(value).is_integer():
+        return f"{int(value):,}"
+    return f"{value:,.3f}".rstrip("0").rstrip(".")
+
+
 # =============================
 # STREAMLIT DASHBOARD
 # =============================
@@ -369,14 +377,21 @@ st.title("📈 FSELX Live Intraday Monitor")
 
 market_status, market_now = get_market_status()
 st.caption(
-    f"FSELX • {SHARES:,} shares • "
+    f"FSELX • {share_count(SHARES)} shares • "
     f"U.S. market: {market_status} • "
     "Intraday estimate based on published top-10 holdings"
 )
 
 with st.sidebar:
     st.header("Settings")
-    st.write(f"Shares: {SHARES:,}")
+    SHARES = st.number_input(
+        "FSELX Shares Owned",
+        min_value=0.0,
+        value=float(DEFAULT_SHARES),
+        step=1.0,
+        format="%.3f",
+        help="Enter the number of FSELX shares you currently own.",
+    )
     refresh = st.slider(
         "Refresh interval",
         30,
@@ -547,7 +562,7 @@ st.write(
     f"to {money(model['normalized_nav'])}"
 )
 
-st.subheader(f"Your {SHARES:,}-Share Position")
+st.subheader(f"Your {share_count(SHARES)}-Share Position")
 baseline_value = SHARES * official_nav
 p1, p2, p3 = st.columns(3)
 
