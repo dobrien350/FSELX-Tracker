@@ -33,22 +33,27 @@ FIDELITY_FALLBACK_URL = (
     "mutual-funds/summary/316390863"
 )
 
-# Published top-10 holdings used by the intraday estimation model.
-# Update these holdings and weights when Fidelity publishes newer data.
-HOLDINGS = {
-    "NVDA": {"name": "NVIDIA", "weight": 0.2464},
-    "AVGO": {"name": "Broadcom", "weight": 0.1588},
-    "MRVL": {"name": "Marvell Technology", "weight": 0.0651},
-    "MPWR": {"name": "Monolithic Power Systems", "weight": 0.0593},
-    "ASML": {"name": "ASML", "weight": 0.0590},
-    "ALAB": {"name": "Astera Labs", "weight": 0.0551},
-    "NXPI": {"name": "NXP Semiconductors", "weight": 0.0434},
-    "ON": {"name": "ON Semiconductor", "weight": 0.0422},
-    "GFS": {"name": "GlobalFoundries", "weight": 0.0355},
-    "WDC": {"name": "Western Digital", "weight": 0.0350},
-}
+# Complete regulatory portfolio source:
+# Fidelity Select Semiconductors Portfolio quarterly holdings report dated 05/31/2026.
+# The report contains 70 security/position line items. Fidelity's newer 07/31/2026
+# summary reports 74 holdings, but the complete July position-level report is not
+# yet used here. This tracker never invents the four newer positions.
+REGULATORY_HOLDINGS_DATE = "05/31/2026"
+CURRENT_FIDELITY_SUMMARY_DATE = "07/31/2026"
+CURRENT_FIDELITY_HOLDING_COUNT = 74
+REGULATORY_POSITION_COUNT = 70
+REGULATORY_NET_ASSETS = 51393101802
 
-TOP10_WEIGHT = sum(x["weight"] for x in HOLDINGS.values())
+# Exchange-traded positions for which Yahoo Finance symbols are available.
+HOLDINGS = {'NVMI': {'name': 'Nova Ltd', 'weight': 0.0188455724998157}, 'ALGM': {'name': 'Allegro MicroSystems Inc', 'weight': 0.01559186793370032}, '285A.T': {'name': 'Kioxia Holdings Corp', 'weight': 0.012679857474075252}, 'ASML': {'name': 'ASML Holding NV', 'weight': 0.045928814650921544}, 'NXPI': {'name': 'NXP Semiconductors NV', 'weight': 0.058032113443752795}, 'SIMO': {'name': 'Silicon Motion Technology Corp ADR', 'weight': 0.002423869675738316}, 'AEVA': {'name': 'Aeva Technologies Inc', 'weight': 0.0001203897173561768}, 'COHR': {'name': 'Coherent Corp', 'weight': 0.013968836396873447}, 'AOSL': {'name': 'Alpha & Omega Semiconductor Ltd', 'weight': 0.00045293965889978876}, 'ARM': {'name': 'ARM Holdings PLC ADR', 'weight': 0.013358367989637148}, 'ALAB': {'name': 'Astera Labs Inc', 'weight': 0.04983006306695308}, 'AVGO': {'name': 'Broadcom Inc', 'weight': 0.129739054371311}, 'CRDO': {'name': 'Credo Technology Group Holding Ltd', 'weight': 0.0020317149255220973}, 'ENTG': {'name': 'Entegris Inc', 'weight': 0.004334982676436354}, 'GFS': {'name': 'GlobalFoundries Inc', 'weight': 0.047336121204992684}, 'PI': {'name': 'Impinj Inc', 'weight': 0.003297665641060892}, 'KLAC': {'name': 'KLA Corp', 'weight': 0.007463517525713402}, 'LRCX': {'name': 'Lam Research Corp', 'weight': 0.03278795283639455}, 'MTSI': {'name': 'MACOM Technology Solutions Holdings Inc', 'weight': 0.027222993747101562}, 'MRVL': {'name': 'Marvell Technology Inc', 'weight': 0.07831219033063647}, 'MU': {'name': 'Micron Technology Inc', 'weight': 0.03085643820662109}, 'MPWR': {'name': 'Monolithic Power Systems Inc', 'weight': 0.04966484645806434}, 'NVDA': {'name': 'NVIDIA Corp', 'weight': 0.22097238490785265}, 'ON': {'name': 'ON Semiconductor Corp', 'weight': 0.04980059311968593}, 'SYNA': {'name': 'Synaptics Inc', 'weight': 0.003651037618295651}, 'SNDK': {'name': 'Sandisk Corp/DE', 'weight': 0.005877159101306582}, 'WDC': {'name': 'Western Digital Corp', 'weight': 0.031884547547122964}}
+
+# Private, restricted, cash, debt, rights, warrants, or otherwise non-live-priced
+# positions are retained in the portfolio inventory instead of being discarded.
+UNQUOTED_POSITIONS = [{'name': 'Taalas Inc warrants', 'weight': 7.833125183822506e-05, 'value': 4025686}, {'name': 'Cerebras Systems Inc Class A', 'weight': 0.0040637066586215, 'value': 208846490}, {'name': 'Cerebras Systems Inc Class B', 'weight': 0.003422050797353428, 'value': 175869805}, {'name': 'Wolfspeed Inc', 'weight': 6.713138298777945e-06, 'value': 345009}, {'name': 'Celestial AI Inc', 'weight': 4.865244385585412e-07, 'value': 25004}, {'name': 'Celestial AI Inc (Milestone 1) rights', 'weight': 6.195006505476382e-05, 'value': 3183806}, {'name': 'Celestial AI Inc (Milestone 2) rights', 'weight': 3.486718912012167e-05, 'value': 1791933}, {'name': 'Celestial AI Inc (Milestone 3) rights', 'weight': 7.459950587864306e-06, 'value': 383390}, {'name': 'Celestial AI Inc escrow shares', 'weight': 1.556629142724496e-10, 'value': 8}, {'name': 'Tenstorrent Holdings Inc 15% 12/31/2026', 'weight': 6.267687465936618e-05, 'value': 3221159}, {'name': 'Taalas Inc Series B', 'weight': 0.00022773336478290815, 'value': 11703924}, {'name': 'Element Labs Inc Series A', 'weight': 0.0006253188632943996, 'value': 32137076}, {'name': 'Element Labs Inc Series B', 'weight': 0.00027492292748615833, 'value': 14129142}, {'name': 'Element Labs Inc Series C', 'weight': 0.0021773398194783666, 'value': 111900247}, {'name': 'Xsight Labs Ltd Series G', 'weight': 0.00022227916976117292, 'value': 11423616}, {'name': 'Nearfield Instruments Series D', 'weight': 0.001406590757617724, 'value': 72289062}, {'name': 'Akeana Series C', 'weight': 2.345742828764395e-05, 'value': 1205550}, {'name': 'Tenstorrent Holdings Inc Series C1', 'weight': 2.3764434470317787e-05, 'value': 1221328}, {'name': 'Tenstorrent Holdings Inc Series D1', 'weight': 0.00022035124565218005, 'value': 11324534}, {'name': 'Tenstorrent Holdings Inc Series D2', 'weight': 1.2131394645180518e-05, 'value': 623470}, {'name': 'Empower Semiconductor Inc Series D', 'weight': 0.0007241421259876499, 'value': 37215910}, {'name': 'Frore Systems Inc Series C', 'weight': 0.000603400318577253, 'value': 31010614}, {'name': 'Frore Systems Inc Series D', 'weight': 0.000966500118855776, 'value': 49671439}, {'name': 'Menlo Microsystems Inc Series C', 'weight': 7.913999850932756e-06, 'value': 406725}, {'name': 'Menlo Microsystems Inc Series C-1', 'weight': 0.0001611133150106494, 'value': 8280113}, {'name': 'Alif Semiconductor Series C', 'weight': 0.00028640217235199444, 'value': 14719096}, {'name': 'Alif Semiconductor Series D', 'weight': 0.0002173526720188213, 'value': 11170428}, {'name': 'Danger Devices Inc Series B', 'weight': 0.0001408343872273989, 'value': 7237916}, {'name': 'Retym Inc Series C', 'weight': 0.00010876872194903135, 'value': 5589962}, {'name': 'Retym Inc Series D', 'weight': 2.8179326587048718e-05, 'value': 1448223}, {'name': 'SiMa Technologies Inc Series B', 'weight': 4.426014231955698e-05, 'value': 2274666}, {'name': 'SiMa Technologies Inc Series B1', 'weight': 2.6316547407678882e-05, 'value': 1352489}, {'name': 'Density AI Inc', 'weight': 0.00013185146960202152, 'value': 6776256}, {'name': 'Lyte AI Inc Series B', 'weight': 5.509416440573376e-05, 'value': 2831460}, {'name': 'Lightmatter Inc Series C1', 'weight': 0.0003320109392450793, 'value': 17063072}, {'name': 'Lightmatter Inc Series C2', 'weight': 5.326963938754638e-05, 'value': 2737692}, {'name': 'Lightmatter Inc Series D', 'weight': 0.000254425429513405, 'value': 13075712}, {'name': 'Diamond Foundry Inc Series C', 'weight': 0.0001252535024019409, 'value': 6437166}, {'name': 'Taalas Inc 0% preferred security', 'weight': 0.000243393151248038, 'value': 12508729}, {'name': 'SiMa Technologies Inc 10% 12/31/2027', 'weight': 1.6720998925317988e-05, 'value': 859344}, {'name': 'SiMa Technologies Inc 7.5% 12/31/2027', 'weight': 0.00010861774838005136, 'value': 5582203}, {'name': 'Fidelity Cash Central Fund', 'weight': 0.024180991425421964, 'value': 1242736154}, {'name': 'Fidelity Securities Lending Cash Central Fund', 'weight': 0.003506389859367998, 'value': 180204251}]
+
+TRACKED_WEIGHT = sum(x["weight"] for x in HOLDINGS.values())
+UNQUOTED_WEIGHT = sum(x["weight"] for x in UNQUOTED_POSITIONS)
+TOTAL_REPORTED_WEIGHT = TRACKED_WEIGHT + UNQUOTED_WEIGHT
 
 st.set_page_config(
     page_title="FSELX Live Monitor",
@@ -184,32 +189,38 @@ def get_official_nav():
 
 
 @st.cache_data(ttl=45, show_spinner=False)
-# Download 5-minute market prices for the modeled holdings.
 def get_intraday_data():
-    return yf.download(
-        tickers=list(HOLDINGS.keys()),
-        period="2d",
-        interval="5m",
-        auto_adjust=False,
-        prepost=False,
-        progress=False,
-        threads=True,
-        group_by="column",
-    )
+    """Fetch each quote-enabled holding independently so one bad ticker cannot hide NVDA or others."""
+    results = {}
+    for ticker in HOLDINGS:
+        try:
+            df = yf.Ticker(ticker).history(
+                period="2d",
+                interval="5m",
+                auto_adjust=False,
+                prepost=False,
+            )
+            results[ticker] = df
+        except Exception as exc:
+            results[ticker] = exc
+    return results
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-# Download daily prices used to determine the previous close.
 def get_daily_data():
-    return yf.download(
-        tickers=list(HOLDINGS.keys()),
-        period="10d",
-        interval="1d",
-        auto_adjust=False,
-        progress=False,
-        threads=True,
-        group_by="column",
-    )
+    """Fetch daily history independently for robust previous-close lookup."""
+    results = {}
+    for ticker in HOLDINGS:
+        try:
+            df = yf.Ticker(ticker).history(
+                period="10d",
+                interval="1d",
+                auto_adjust=False,
+            )
+            results[ticker] = df
+        except Exception as exc:
+            results[ticker] = exc
+    return results
 
 
 # Pull the latest price and previous close for each available holding.
@@ -218,41 +229,38 @@ def extract_prices(intraday, daily):
     previous = {}
     errors = []
 
-    try:
-        if (
-            intraday is not None
-            and not intraday.empty
-            and isinstance(intraday.columns, pd.MultiIndex)
-            and "Close" in intraday.columns.get_level_values(0)
-        ):
-            closes = intraday["Close"]
-            for ticker in HOLDINGS:
-                if ticker in closes.columns:
-                    series = closes[ticker].dropna()
-                    if not series.empty:
-                        current[ticker] = float(series.iloc[-1])
-        else:
-            errors.append("No usable Yahoo intraday data.")
-    except Exception as exc:
-        errors.append(f"Intraday error: {exc}")
+    for ticker in HOLDINGS:
+        intraday_result = intraday.get(ticker)
+        daily_result = daily.get(ticker)
 
-    try:
-        if (
-            daily is not None
-            and not daily.empty
-            and isinstance(daily.columns, pd.MultiIndex)
-            and "Close" in daily.columns.get_level_values(0)
-        ):
-            closes = daily["Close"]
-            for ticker in HOLDINGS:
-                if ticker in closes.columns:
-                    series = closes[ticker].dropna()
-                    if len(series) >= 2:
-                        previous[ticker] = float(series.iloc[-2])
-        else:
-            errors.append("No usable Yahoo daily data.")
-    except Exception as exc:
-        errors.append(f"Daily data error: {exc}")
+        try:
+            if isinstance(intraday_result, Exception):
+                raise intraday_result
+            if intraday_result is not None and not intraday_result.empty and "Close" in intraday_result.columns:
+                series = intraday_result["Close"].dropna()
+                if not series.empty:
+                    current[ticker] = float(series.iloc[-1])
+        except Exception as exc:
+            errors.append(f"{ticker} intraday: {exc}")
+
+        try:
+            if isinstance(daily_result, Exception):
+                raise daily_result
+            if daily_result is not None and not daily_result.empty and "Close" in daily_result.columns:
+                series = daily_result["Close"].dropna()
+                # Last completed daily bar is the previous close during the session.
+                # If Yahoo already has today's partial/current daily bar, use the prior row.
+                if len(series) >= 2:
+                    previous[ticker] = float(series.iloc[-2])
+                elif len(series) == 1:
+                    previous[ticker] = float(series.iloc[-1])
+        except Exception as exc:
+            errors.append(f"{ticker} daily: {exc}")
+
+        if ticker not in current:
+            errors.append(f"{ticker}: no usable current quote")
+        if ticker not in previous:
+            errors.append(f"{ticker}: no usable previous close")
 
     return current, previous, errors
 
@@ -260,9 +268,9 @@ def extract_prices(intraday, daily):
 # =============================
 # INTRADAY FSELX ESTIMATION MODEL
 # =============================
-# Conservative estimate uses actual published fund weights.
-# Normalized estimate scales the available top-10 holdings to the modeled basket.
-# Central estimate is the midpoint of the conservative and normalized estimates.
+# Conservative estimate uses actual regulatory weights for live-priced securities.
+# Normalized estimate scales only the live-priced portion to estimate the day's move.
+# Central estimate is the midpoint, providing a range for non-live-priced positions.
 def calculate_model(official_nav, current_prices, previous_prices):
     rows = []
     actual_change = 0.0
@@ -279,7 +287,7 @@ def calculate_model(official_nav, current_prices, previous_prices):
         change = (current / previous) - 1.0
         weight = info["weight"]
         actual_contribution = weight * change
-        normalized_weight = weight / TOP10_WEIGHT
+        normalized_weight = weight / TRACKED_WEIGHT
         normalized_contribution = normalized_weight * change
         actual_change += actual_contribution
 
@@ -379,7 +387,7 @@ market_status, market_now = get_market_status()
 st.caption(
     f"FSELX • {share_count(SHARES)} shares • "
     f"U.S. market: {market_status} • "
-    "Intraday estimate based on published top-10 holdings"
+    "Full regulatory portfolio inventory; live estimate uses quoted holdings"
 )
 
 with st.sidebar:
@@ -400,8 +408,8 @@ with st.sidebar:
         30,
     )
     st.divider()
-    st.write(f"Top-10 coverage: {TOP10_WEIGHT * 100:.2f}%")
-    st.write(f"Holdings date: {HOLDINGS_DATE}")
+    st.write(f"Live-priced portfolio weight: {TRACKED_WEIGHT * 100:.2f}%")
+    st.write(f"Regulatory holdings date: {REGULATORY_HOLDINGS_DATE}")
     st.divider()
 
     if st.button("Clear cached data"):
@@ -455,7 +463,7 @@ if not current_prices:
 with status2:
     st.success(
         f"Yahoo Finance: {len(current_prices)} / "
-        f"{len(HOLDINGS)} holdings"
+        f"{len(HOLDINGS)} quote-enabled holdings"
     )
 
 model = calculate_model(
@@ -585,10 +593,18 @@ with p3:
     )
 
 # Individual holding moves and their modeled NAV contributions.
-st.subheader("Top 10 Holdings")
+st.subheader("Live-Priced Holdings")
 table = pd.DataFrame(model["rows"])
 
 if not table.empty:
+    # IMPORTANT: calculate_model() builds rows in HOLDINGS dictionary order.
+    # Explicitly sort THIS dataframe by portfolio weight before displaying it.
+    table = table.sort_values(
+        by="Weight",
+        ascending=False,
+        kind="stable",
+    ).reset_index(drop=True)
+
     table["Weight"] = table["Weight"] * 100
     table["Change"] = table["Change"] * 100
     table["Contribution"] = (
@@ -634,6 +650,63 @@ if not table.empty:
             ),
         },
     )
+
+
+# Build pricing status before rendering the holdings table.
+# This is deliberately defined here so the table can never reference an
+# undefined successfully_priced variable.
+successfully_priced = sorted(
+    set(current_prices.keys()) & set(previous_prices.keys())
+)
+failed_pricing = sorted(set(HOLDINGS.keys()) - set(successfully_priced))
+
+st.subheader("FSELX Holdings — Highest Weight to Lowest")
+st.caption(
+    f"Verified Fidelity/SEC regulatory portfolio dated {REGULATORY_HOLDINGS_DATE}. "
+    "Weights are each position's reported value divided by reported net assets."
+)
+
+inventory_rows = []
+for ticker, info in HOLDINGS.items():
+    inventory_rows.append({
+        "Security / Position": info["name"],
+        "Ticker": ticker,
+        "Weight %": info["weight"] * 100,
+        "Pricing": "Yahoo live" if ticker in successfully_priced else "Yahoo failed",
+    })
+
+for info in UNQUOTED_POSITIONS:
+    inventory_rows.append({
+        "Security / Position": info["name"],
+        "Ticker": "",
+        "Weight %": info["weight"] * 100,
+        "Pricing": "Reported / fair value",
+    })
+
+inventory_df = pd.DataFrame(inventory_rows).sort_values(
+    "Weight %", ascending=False
+).reset_index(drop=True)
+inventory_df.insert(0, "Rank", range(1, len(inventory_df) + 1))
+
+st.dataframe(
+    inventory_df,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Rank": st.column_config.NumberColumn(format="%d"),
+        "Weight %": st.column_config.NumberColumn(format="%.4f%%"),
+    },
+)
+
+q1, q2, q3, q4 = st.columns(4)
+with q1:
+    st.metric("Regulatory Positions", REGULATORY_POSITION_COUNT)
+with q2:
+    st.metric("Quote-Enabled", len(HOLDINGS))
+with q3:
+    st.metric("Successfully Priced", len(successfully_priced))
+with q4:
+    st.metric("Live Weight Coverage", f"{sum(HOLDINGS[t]['weight'] for t in successfully_priced) * 100:.2f}%")
 
 # Historical chart built from saved observations.
 st.subheader("Estimated Intraday NAV")
@@ -725,7 +798,7 @@ m1, m2, m3 = st.columns(3)
 
 with m1:
     st.write(
-        f"Top-10 coverage: {TOP10_WEIGHT * 100:.2f}%"
+        f"Live-priced weight: {TRACKED_WEIGHT * 100:.2f}%"
     )
 
 with m2:
@@ -753,14 +826,7 @@ st.warning(
 st.divider()
 st.caption(f"Refresh interval: {refresh} seconds.")
 
-try:
-    @st.fragment(run_every=refresh)
-    def refresh_status():
-        st.caption("Automatic refresh is active.")
-
-    refresh_status()
-except Exception:
-    st.caption(
-        "Automatic refresh is unavailable. "
-        "Refresh the browser manually."
-    )
+# Automatic refresh without requiring an extra package.
+import time
+time.sleep(refresh)
+st.rerun()
