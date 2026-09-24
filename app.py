@@ -1,4 +1,5 @@
 import re
+import html as html_lib
 import sqlite3
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -159,33 +160,59 @@ def get_fidelity_page(url):
     return response.text
 
 
-# Extract a plausible official NAV from the Fidelity page.
+# Retrieve the latest published FSELX NAV. Fidelity is authoritative; Yahoo is fallback only.
+@st.cache_data(ttl=300, show_spinner=False)
 def get_official_nav():
-    """Return the latest published FSELX mutual-fund NAV from Yahoo Finance."""
+    """Return (nav, source, as_of_date, error). Prefer Fidelity's published NAV."""
+    fidelity_errors = []
+
+    # Fidelity Institutional daily-pricing page is the primary source.
+    try:
+        page = get_fidelity_page(FIDELITY_SUMMARY_URL)
+        text = html_lib.unescape(re.sub(r"<[^>]+>", " ", page))
+        text = re.sub(r"\s+", " ", text)
+
+        date_match = re.search(
+            r"AS\s+OF\s+(\d{1,2}/\d{1,2}/\d{4})",
+            text,
+            flags=re.IGNORECASE,
+        )
+        as_of_date = date_match.group(1) if date_match else None
+
+        symbol_pos = text.upper().find("FSELX")
+        if symbol_pos >= 0:
+            # On Fidelity's pricing table, the first dollar value following FSELX is NAV.
+            window = text[symbol_pos:symbol_pos + 1800]
+            nav_match = re.search(r"\$\s*([0-9]{1,4}(?:\.[0-9]{2,4})?)", window)
+            if nav_match:
+                value = float(nav_match.group(1))
+                if 1 < value < 1000:
+                    return value, "Fidelity", as_of_date, None
+
+        fidelity_errors.append("FSELX NAV was not parsed from Fidelity daily pricing.")
+    except Exception as exc:
+        fidelity_errors.append(f"Fidelity daily-pricing lookup failed: {exc}")
+
+    # Yahoo Finance is a fallback only when Fidelity cannot be read.
     try:
         fund = yf.Ticker(FSELX_SYMBOL)
-        history = fund.history(
-            period="10d",
-            interval="1d",
-            auto_adjust=False,
-        )
-
-        if history is None or history.empty or "Close" not in history.columns:
-            return None, "Yahoo Finance returned no FSELX daily NAV history."
-
-        closes = history["Close"].dropna()
-        if closes.empty:
-            return None, "Yahoo Finance returned no usable FSELX closing NAV."
-
-        value = float(closes.iloc[-1])
-
-        if not 1 < value < 1000:
-            return None, f"Yahoo Finance returned an unexpected FSELX NAV: {value}"
-
-        return value, None
-
+        history = fund.history(period="10d", interval="1d", auto_adjust=False)
+        if history is not None and not history.empty and "Close" in history.columns:
+            closes = history["Close"].dropna()
+            if not closes.empty:
+                value = float(closes.iloc[-1])
+                if 1 < value < 1000:
+                    idx = closes.index[-1]
+                    try:
+                        as_of_date = idx.strftime("%m/%d/%Y")
+                    except Exception:
+                        as_of_date = None
+                    warning = " | ".join(fidelity_errors) if fidelity_errors else None
+                    return value, "Yahoo Finance fallback", as_of_date, warning
     except Exception as exc:
-        return None, f"FSELX NAV lookup failed: {exc}"
+        fidelity_errors.append(f"Yahoo fallback failed: {exc}")
+
+    return None, None, None, " | ".join(fidelity_errors)
 
 
 @st.cache_data(ttl=45, show_spinner=False)
@@ -204,6 +231,42 @@ def get_intraday_data():
         except Exception as exc:
             results[ticker] = exc
     return results
+
+
+@st.cache_data(ttl=45, show_spinner=False)
+def get_extended_hours_data():
+    """Fetch pre-market/after-hours quotes for a next-session indication only."""
+    results = {}
+    for ticker in HOLDINGS:
+        try:
+            df = yf.Ticker(ticker).history(
+                period="2d",
+                interval="5m",
+                auto_adjust=False,
+                prepost=True,
+            )
+            results[ticker] = df
+        except Exception as exc:
+            results[ticker] = exc
+    return results
+
+
+def extract_extended_prices(extended, daily):
+    """Compare latest extended-hours quote with the latest completed regular close."""
+    current = {}
+    regular_close = {}
+    for ticker in HOLDINGS:
+        ext = extended.get(ticker)
+        day = daily.get(ticker)
+        if not isinstance(ext, Exception) and ext is not None and not ext.empty and "Close" in ext.columns:
+            ser = ext["Close"].dropna()
+            if not ser.empty:
+                current[ticker] = float(ser.iloc[-1])
+        if not isinstance(day, Exception) and day is not None and not day.empty and "Close" in day.columns:
+            ser = day["Close"].dropna()
+            if not ser.empty:
+                regular_close[ticker] = float(ser.iloc[-1])
+    return current, regular_close
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -400,6 +463,28 @@ with st.sidebar:
         format="%.3f",
         help="Enter the number of FSELX shares you currently own.",
     )
+    st.divider()
+    st.subheader("Official NAV Override")
+    use_nav_override = st.checkbox(
+        "Use Fidelity account NAV",
+        value=True,
+        help="Use the official NAV shown in your Fidelity account when public feeds have not caught up yet.",
+    )
+    override_current_nav = st.number_input(
+        "Current official FSELX NAV",
+        min_value=0.0,
+        value=63.99,
+        step=0.01,
+        format="%.2f",
+    )
+    override_previous_nav = st.number_input(
+        "Previous official FSELX NAV",
+        min_value=0.0,
+        value=64.84,
+        step=0.01,
+        format="%.2f",
+    )
+
     refresh = st.slider(
         "Refresh interval",
         30,
@@ -414,7 +499,10 @@ with st.sidebar:
 
     if st.button("Clear cached data"):
         get_intraday_data.clear()
+        get_extended_hours_data.clear()
         get_daily_data.clear()
+        get_official_nav.clear()
+        get_fidelity_page.clear()
         st.rerun()
 
 # Verify the published FSELX NAV and holdings market data before calculating the estimate.
@@ -424,18 +512,30 @@ status1, status2 = st.columns(2)
 with status1:
     st.write("FSELX Published NAV")
 
-official_nav, fidelity_error = get_official_nav()
+official_nav, nav_source, nav_date, fidelity_error = get_official_nav()
+
+# Fidelity-account override: useful when the public Fidelity/Yahoo feeds lag the
+# NAV already visible in the shareholder account. The override is authoritative
+# for the completed-day actual result and the next session's baseline.
+if use_nav_override and override_current_nav > 0:
+    official_nav = float(override_current_nav)
+    nav_source = "Fidelity account override"
+    nav_date = market_now.strftime("%m/%d/%Y")
 
 if official_nav is None:
     with status1:
         st.error("FSELX NAV unavailable")
-    st.error("Could not retrieve the latest published FSELX NAV from Yahoo Finance.")
+    st.error("Could not retrieve the latest published FSELX NAV from Fidelity or the Yahoo fallback.")
     if fidelity_error:
         st.code(fidelity_error)
     st.stop()
 
 with status1:
-    st.success(f"Published FSELX NAV: {money(official_nav)}")
+    nav_date_text = f" as of {nav_date}" if nav_date else ""
+    st.success(f"Published FSELX NAV: {money(official_nav)}{nav_date_text}")
+    st.caption(f"NAV source: {nav_source}")
+    if fidelity_error and nav_source != "Fidelity":
+        st.warning(f"Using fallback NAV. {fidelity_error}")
 
 with status2:
     st.write("Yahoo Finance")
@@ -466,6 +566,31 @@ with status2:
         f"{len(HOLDINGS)} quote-enabled holdings"
     )
 
+# NAV rollover protection:
+# Mutual funds publish one official NAV after the market closes. If Fidelity has
+# already published an NAV dated today, that value is the FINAL result for this
+# trading day. Do not apply today's stock moves to it a second time. On the next
+# trading day, the same published NAV automatically becomes the starting baseline.
+nav_is_today = False
+if nav_date:
+    try:
+        nav_day = datetime.strptime(nav_date, "%m/%d/%Y").date()
+        nav_is_today = nav_day == market_now.date()
+    except ValueError:
+        nav_is_today = False
+
+final_nav_published = market_status == "Closed" and nav_is_today
+
+if final_nav_published:
+    st.success(
+        f"Final FSELX NAV for {nav_date} has been published: {money(official_nav)}. "
+        "The tracker will not apply today's holdings move to this NAV again. "
+        "This NAV becomes the baseline for the next trading session."
+    )
+    # Neutralize the already-completed day's holdings move so the model remains
+    # anchored exactly to the newly published official NAV after the rollover.
+    current_prices = previous_prices.copy()
+
 model = calculate_model(
     official_nav,
     current_prices,
@@ -489,58 +614,117 @@ if model is None:
 
 save_observation(official_nav, model)
 
-# Prominent daily estimated gain/loss summary.
-st.subheader("Today's Estimated Move")
+# Session-aware summary:
+# - Regular market hours: show the live model move from the latest official NAV.
+# - After the close, once today's official NAV is available: show the actual daily result.
+# - Before the next session opens: keep the completed-day actual result visible, while
+#   the separate extended-hours section provides a next-session indication.
+st.subheader("Today's Move")
 
-move1, move2, move3 = st.columns(3)
+show_actual_move = (
+    market_status != "Open"
+    and use_nav_override
+    and override_current_nav > 0
+    and override_previous_nav > 0
+)
 
-with move1:
-    st.metric(
-        "Estimated FSELX Change",
-        percent((model["estimated_nav"] / official_nav) - 1),
+if show_actual_move:
+    actual_change_dollars_per_share = official_nav - float(override_previous_nav)
+    actual_change_pct = (official_nav / float(override_previous_nav)) - 1.0
+    actual_gain = SHARES * actual_change_dollars_per_share
+    actual_value = SHARES * official_nav
+
+    st.caption("Official completed-day result from Fidelity")
+    move1, move2, move3, move4 = st.columns(4)
+    with move1:
+        st.metric("Prior Official NAV", money(float(override_previous_nav)))
+    with move2:
+        st.metric(
+            "Official Closing NAV",
+            money(official_nav),
+            delta=money(actual_change_dollars_per_share),
+        )
+    with move3:
+        st.metric("Actual FSELX Change", percent(actual_change_pct))
+    with move4:
+        st.metric("Actual Dollar Gain / Loss", money(actual_gain))
+    st.caption(
+        f"Actual Fidelity NAV move: {money(float(override_previous_nav))} → "
+        f"{money(official_nav)} across {share_count(SHARES)} shares. "
+        f"Current position value: {money(actual_value)}."
     )
+else:
+    # During regular trading, the latest published NAV is yesterday's official
+    # close and is therefore the correct baseline for today's live estimate.
+    live_change_per_share = model["estimated_nav"] - official_nav
+    live_change_pct = (model["estimated_nav"] / official_nav) - 1.0
+    st.caption("Live estimate versus the prior official FSELX close")
+    move1, move2, move3, move4 = st.columns(4)
+    with move1:
+        st.metric("Prior Official Close", money(official_nav))
+    with move2:
+        st.metric(
+            "Estimated Current NAV",
+            money(model["estimated_nav"]),
+            delta=money(live_change_per_share),
+        )
+    with move3:
+        st.metric("Estimated Change", percent(live_change_pct))
+    with move4:
+        st.metric("Estimated Dollar Gain / Loss", money(model["estimated_gain"]))
 
-with move2:
-    st.metric(
-        "Estimated Dollar Gain / Loss",
-        money(model["estimated_gain"]),
-    )
+# Main NAV/model detail. Keep this visible during the regular session; after the
+# close the completed-day actual result above is authoritative.
+if market_status == "Open":
+    st.subheader("Live Intraday Estimate")
+    c1, c2, c3, c4 = st.columns(4)
 
-with move3:
-    st.metric(
-        "Estimated Position Value",
-        money(model["estimated_value"]),
-        delta=money(model["estimated_gain"]),
-    )
+    with c1:
+        st.metric("Prior Official NAV", money(official_nav))
+    with c2:
+        st.metric(
+            "Estimated Intraday NAV",
+            money(model["estimated_nav"]),
+            delta=percent(model["normalized_change"]),
+        )
+    with c3:
+        st.metric("Estimated Position", money(model["estimated_value"]))
+    with c4:
+        st.metric("Estimated Position Change", money(model["estimated_gain"]))
 
-# Main NAV and portfolio-value estimates.
-st.subheader("Current Estimate")
-c1, c2, c3, c4 = st.columns(4)
+# Separate extended-hours indication. This NEVER changes the official NAV or
+# completed-day actual result; it is only a directional look at the next session.
+if market_status != "Open":
+    try:
+        extended_data = get_extended_hours_data()
+        extended_prices, regular_closes = extract_extended_prices(extended_data, daily)
+        extended_model = calculate_model(official_nav, extended_prices, regular_closes)
+    except Exception:
+        extended_model = None
 
-with c1:
-    st.metric(
-        "Published FSELX NAV",
-        money(official_nav),
-    )
-
-with c2:
-    st.metric(
-        "Estimated Intraday NAV",
-        money(model["estimated_nav"]),
-        delta=percent(model["normalized_change"]),
-    )
-
-with c3:
-    st.metric(
-        "Estimated Position",
-        money(model["estimated_value"]),
-    )
-
-with c4:
-    st.metric(
-        "Estimated Position Change",
-        money(model["estimated_gain"]),
-    )
+    st.subheader("After-Hours / Next Session Indication")
+    if extended_model is not None:
+        ah1, ah2, ah3 = st.columns(3)
+        with ah1:
+            st.metric("Official NAV Baseline", money(official_nav))
+        with ah2:
+            st.metric(
+                "Next-Session Indicated NAV",
+                money(extended_model["estimated_nav"]),
+                delta=percent(extended_model["normalized_change"]),
+            )
+        with ah3:
+            st.metric("Indicated Position Change", money(extended_model["estimated_gain"]))
+        st.caption(
+            "Uses available pre-market/after-hours quotes versus each holding's latest "
+            "regular-session close. It is a directional next-session indication only and "
+            "does not alter the published FSELX NAV or the completed day's result."
+        )
+    else:
+        st.info(
+            "Extended-hours quotes are not currently available. The official FSELX NAV "
+            "remains the baseline for the next regular trading session."
+        )
 
 st.subheader("Estimated FSELX Range")
 r1, r2, r3 = st.columns(3)
